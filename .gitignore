@@ -1,0 +1,23 @@
+# Byte-compiled
+__pycache__/
+*.pyc
+
+# Virtual env
+backend/venv/
+
+# Environment
+.env
+.env.local
+
+# Database
+*.db
+
+# Uploads
+backend/uploads/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# OS
+.DS_Store
