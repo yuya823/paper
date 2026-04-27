@@ -5,8 +5,8 @@ __pycache__/
 # Virtual env
 backend/venv/
 
-# Environment
-.env
+# Environment (backend has secrets, frontend only has public anon keys)
+backend/.env
 .env.local
 
 # Database
