@@ -30,7 +30,7 @@ export class PdfRenderer {
     let viewport = page.getViewport({ scale: this.scale });
 
     if (containerWidth && containerWidth > 0) {
-      const fitScale = (containerWidth - 32) / viewport.width;
+      const fitScale = (containerWidth - 4) / viewport.width;
       if (fitScale < this.scale) {
         viewport = page.getViewport({ scale: fitScale });
       }

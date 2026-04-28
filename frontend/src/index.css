@@ -195,8 +195,8 @@ input, select { font-family: inherit; }
 
 /* ===== Page Container ===== */
 .page-container {
-  position: relative; margin: 4px auto;
-  box-shadow: var(--shadow-sm);
+  position: relative; margin: 2px 0;
+  box-shadow: none;
   background: #fff;
   border-radius: 2px;
 }
