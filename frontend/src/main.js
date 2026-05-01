@@ -436,9 +436,7 @@ class App {
         <div class="viewer__toolbar-group">
           <button class="btn btn--ghost btn--sm ${this.syncManager.syncScroll ? 'btn--active' : ''}" id="btnSyncScroll">${icons.sync} 同期スクロール</button>
         </div>
-        ${this.currentDoc?.status !== 'completed' ? `
-          <button class="btn btn--primary btn--sm" id="btnTranslate" style="margin-left:auto;">${icons.translate} ${this.currentDoc?.status === 'error' ? '再翻訳' : '翻訳開始'}</button>
-        ` : ''}
+        <button class="btn btn--primary btn--sm" id="btnTranslate" style="margin-left:auto;">${icons.translate} ${this.currentDoc?.status === 'completed' ? '再翻訳' : this.currentDoc?.status === 'error' ? '再翻訳' : '翻訳開始'}</button>
       </div>
       <div class="viewer__main">
         <div class="thumbnail-panel ${this.showThumbnails ? '' : 'hidden'}" id="thumbnailPanel"></div>

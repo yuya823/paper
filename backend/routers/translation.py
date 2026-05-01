@@ -145,7 +145,7 @@ async def start_translation(
     options: TranslationRequest = TranslationRequest(),
     user_id: str = Depends(get_current_user),
 ):
-    """Start translation for a document."""
+    """Start translation for a document. Supports re-translation."""
     db = await get_db()
     try:
         cursor = await db.execute("SELECT * FROM documents WHERE id = ? AND user_id = ?", (doc_id, user_id))
@@ -155,6 +155,14 @@ async def start_translation(
 
         if doc["status"] in ("analyzing", "translating"):
             raise HTTPException(status_code=400, detail="すでに処理中です")
+
+        # For re-translation: delete old blocks
+        if doc["status"] in ("completed", "error"):
+            await db.execute("DELETE FROM page_blocks WHERE document_id = ?", (doc_id,))
+            await db.execute(
+                "UPDATE documents SET status = 'uploaded' WHERE id = ?", (doc_id,)
+            )
+            await db.commit()
 
         background_tasks.add_task(_run_translation, doc_id, options)
 
