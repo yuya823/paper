@@ -94,10 +94,12 @@ async def _run_translation(doc_id: str, options: TranslationRequest):
                             (translated, block["id"]),
                         )
                     except Exception as e:
-                        print(f"Translation error for block {block['id']}: {e}")
+                        error_type = type(e).__name__
+                        print(f"Translation error for block {block['id']} ({error_type}): {e}")
+                        # Save original text as fallback so user can still read the content
                         await db.execute(
                             "UPDATE page_blocks SET translated_text = ? WHERE id = ?",
-                            (f"[翻訳エラー] {block['source_text'][:50]}...", block["id"]),
+                            (f"[翻訳エラー: {error_type}] {block['source_text']}", block["id"]),
                         )
 
                 translated_count += 1

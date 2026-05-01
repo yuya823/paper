@@ -40,6 +40,15 @@ class App {
     console.log('[Paper Translator] init() called');
     this.render(); // show loading screen
 
+    // Handle OAuth error in URL (e.g., expired state)
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthError = urlParams.get('error_description');
+    if (oauthError) {
+      console.warn('[Paper Translator] OAuth error:', oauthError);
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
     if (IS_LOCAL_DEV) {
       // Skip auth in local dev
       this.user = { email: 'dev@local' };
@@ -428,7 +437,7 @@ class App {
           <button class="btn btn--ghost btn--sm ${this.syncManager.syncScroll ? 'btn--active' : ''}" id="btnSyncScroll">${icons.sync} 同期スクロール</button>
         </div>
         ${this.currentDoc?.status !== 'completed' ? `
-          <button class="btn btn--primary btn--sm" id="btnTranslate" style="margin-left:auto;">${icons.translate} 翻訳開始</button>
+          <button class="btn btn--primary btn--sm" id="btnTranslate" style="margin-left:auto;">${icons.translate} ${this.currentDoc?.status === 'error' ? '再翻訳' : '翻訳開始'}</button>
         ` : ''}
       </div>
       <div class="viewer__main">
