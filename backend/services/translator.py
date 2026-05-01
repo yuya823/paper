@@ -105,6 +105,9 @@ class DeepLTranslator(TranslationService):
         if not api_key.endswith(":fx"):
             self.base_url = "https://api.deepl.com/v2"
 
+    def _headers(self):
+        return {"Authorization": f"DeepL-Auth-Key {self.api_key}"}
+
     async def translate(self, text: str, source_lang: str = "EN", target_lang: str = "JA") -> str:
         if not text or not text.strip():
             return text
@@ -112,8 +115,8 @@ class DeepLTranslator(TranslationService):
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{self.base_url}/translate",
+                headers=self._headers(),
                 data={
-                    "auth_key": self.api_key,
                     "text": text,
                     "source_lang": source_lang,
                     "target_lang": target_lang,
@@ -130,8 +133,8 @@ class DeepLTranslator(TranslationService):
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
                 f"{self.base_url}/translate",
+                headers=self._headers(),
                 data={
-                    "auth_key": self.api_key,
                     "text": texts,
                     "source_lang": source_lang,
                     "target_lang": target_lang,
