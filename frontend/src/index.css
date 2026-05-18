@@ -239,6 +239,18 @@ input, select { font-family: inherit; }
   box-shadow: 0 0 12px rgba(56,189,248,0.3);
 }
 
+/* Cross-panel hover highlight */
+.translation-block--hover {
+  background: rgba(0,131,143,0.12) !important;
+  box-shadow: 0 0 0 2px rgba(0,131,143,0.4), 0 0 12px rgba(0,131,143,0.15);
+  z-index: 5;
+}
+.source-highlight--hover {
+  background: rgba(56,189,248,0.12);
+  border-color: var(--c-accent);
+  box-shadow: 0 0 8px rgba(56,189,248,0.25);
+}
+
 /* ===== Progress Modal ===== */
 .progress-overlay {
   position: fixed; inset: 0; z-index: 1000;

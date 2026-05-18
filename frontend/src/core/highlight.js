@@ -3,6 +3,7 @@ export class HighlightManager {
   constructor() {
     this.enabled = true;
     this._activeBlockId = null;
+    this._hoverBlockId = null;
   }
 
   highlightBlock(blockId, sourcePanel) {
@@ -24,6 +25,38 @@ export class HighlightManager {
     if (targetBlock) {
       targetBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+  }
+
+  /** Hover highlight - shows matching block in the other panel */
+  highlightBlockHover(blockId, sourcePanel) {
+    if (!this.enabled) return;
+    if (this._hoverBlockId === blockId) return; // already hovering
+    this.clearHoverHighlights();
+    this._hoverBlockId = blockId;
+
+    // Highlight in the OTHER panel only
+    if (sourcePanel === 'ja') {
+      const enBlock = document.querySelector(`.panel--en [data-block-id="${blockId}"]`);
+      if (enBlock) {
+        enBlock.classList.add('source-highlight--hover');
+        enBlock.style.opacity = '1';
+      }
+    } else {
+      const jaBlock = document.querySelector(`.panel--ja [data-block-id="${blockId}"]`);
+      if (jaBlock) jaBlock.classList.add('translation-block--hover');
+    }
+  }
+
+  clearHoverHighlights() {
+    document.querySelectorAll('.translation-block--hover').forEach(el => el.classList.remove('translation-block--hover'));
+    document.querySelectorAll('.source-highlight--hover').forEach(el => {
+      el.classList.remove('source-highlight--hover');
+      // Restore opacity unless it's actively clicked
+      if (!el.classList.contains('source-highlight--active')) {
+        el.style.opacity = '0';
+      }
+    });
+    this._hoverBlockId = null;
   }
 
   clearHighlights() {

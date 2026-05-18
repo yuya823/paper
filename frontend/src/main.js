@@ -27,6 +27,7 @@ class App {
     this.scale = 1.2;
     this.screen = 'loading';   // 'loading' | 'login' | 'upload' | 'viewer'
     this.user = null;
+    this._cachedScreens = {};  // キャッシュされた画面DOM要素
     this.prefs = {
       sync_scroll: true, sync_zoom: true, show_highlight_link: true,
       font_size_ja: 10, font_family_ja: 'Noto Sans JP',
@@ -89,22 +90,99 @@ class App {
     }
     this.syncManager.setSyncScroll(this.prefs.sync_scroll);
     this.highlightManager.setEnabled(this.prefs.show_highlight_link);
+
+    // 最後に開いた論文を自動復元
+    const lastDocId = localStorage.getItem('paperTranslator_lastDocId');
+    if (lastDocId) {
+      try {
+        console.log('[Paper Translator] Restoring last document:', lastDocId);
+        await this._openDocument({ id: lastDocId });
+      } catch (e) {
+        console.log('[Paper Translator] Could not restore last document:', e.message);
+        localStorage.removeItem('paperTranslator_lastDocId');
+      }
+    }
   }
 
   render() {
     const app = document.getElementById('app');
-    app.innerHTML = '';
+
+    // 全キャッシュ画面を非表示にする
+    Object.values(this._cachedScreens).forEach(el => {
+      if (el && el.parentNode) el.style.display = 'none';
+    });
+    // ヘッダーも非表示
+    if (this._cachedHeader && this._cachedHeader.parentNode) {
+      this._cachedHeader.style.display = 'none';
+    }
+    if (this._cachedViewerHeader && this._cachedViewerHeader.parentNode) {
+      this._cachedViewerHeader.style.display = 'none';
+    }
+
     if (this.screen === 'loading') {
       app.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;"><div class="spinner"></div></div>';
     } else if (this.screen === 'login') {
+      // ログイン画面はキャッシュしない（毎回リビルド）
+      app.innerHTML = '';
       app.appendChild(this._buildLoginScreen());
     } else if (this.screen === 'upload') {
-      app.appendChild(this._buildHeader(false));
-      app.appendChild(this._buildUploadScreen());
-    } else {
-      app.appendChild(this._buildHeader(true));
-      app.appendChild(this._buildViewer());
+      // loading の残骸をクリア
+      if (!this._cachedScreens.upload) {
+        app.innerHTML = '';
+      }
+      // ヘッダー
+      if (!this._cachedHeader) {
+        this._cachedHeader = this._buildHeader(false);
+        app.appendChild(this._cachedHeader);
+      } else {
+        if (!this._cachedHeader.parentNode) app.appendChild(this._cachedHeader);
+        this._cachedHeader.style.display = '';
+      }
+      // アップロード画面
+      if (!this._cachedScreens.upload) {
+        this._cachedScreens.upload = this._buildUploadScreen();
+        app.appendChild(this._cachedScreens.upload);
+      } else {
+        if (!this._cachedScreens.upload.parentNode) app.appendChild(this._cachedScreens.upload);
+        this._cachedScreens.upload.style.display = '';
+        // ドキュメントリストを再読み込み
+        this._refreshDocList();
+      }
+    } else if (this.screen === 'viewer') {
+      // loading の残骸をクリア
+      if (!this._cachedScreens.viewer && !this._cachedViewerHeader) {
+        app.innerHTML = '';
+      }
+      // ビューアヘッダー
+      if (!this._cachedViewerHeader) {
+        this._cachedViewerHeader = this._buildHeader(true);
+        app.appendChild(this._cachedViewerHeader);
+      } else {
+        if (!this._cachedViewerHeader.parentNode) app.appendChild(this._cachedViewerHeader);
+        this._cachedViewerHeader.style.display = '';
+        // ドキュメントタイトル更新
+        const titleEl = this._cachedViewerHeader.querySelector('#headerTitle');
+        if (titleEl) titleEl.textContent = this.currentDoc?.title || '';
+      }
+      // ビューア本体
+      if (!this._cachedScreens.viewer) {
+        this._cachedScreens.viewer = this._buildViewer();
+        app.appendChild(this._cachedScreens.viewer);
+      } else {
+        if (!this._cachedScreens.viewer.parentNode) app.appendChild(this._cachedScreens.viewer);
+        this._cachedScreens.viewer.style.display = '';
+      }
     }
+  }
+
+  /** ドキュメントリストを再取得して表示更新 */
+  async _refreshDocList() {
+    const docList = this._cachedScreens.upload?.querySelector('#docList');
+    if (!docList) return;
+    try {
+      const docs = await apiClient.listDocuments();
+      this._renderDocList(docList, docs);
+    } catch (e) { /* backend might not be running */ }
   }
 
   // ─── Login Screen ──────────────────────────────
@@ -388,6 +466,20 @@ class App {
     this.currentDoc = await apiClient.getDocument(doc.id);
     this.totalPages = this.currentDoc.total_pages;
     this.currentPage = 1;
+
+    // 最後に開いた論文を localStorage に保存
+    localStorage.setItem('paperTranslator_lastDocId', doc.id);
+
+    // ビューアのキャッシュをクリア（新しいドキュメントを開くため）
+    if (this._cachedScreens.viewer) {
+      this._cachedScreens.viewer.remove();
+      this._cachedScreens.viewer = null;
+    }
+    if (this._cachedViewerHeader) {
+      this._cachedViewerHeader.remove();
+      this._cachedViewerHeader = null;
+    }
+
     this.screen = 'viewer';
     this.render();
 
@@ -561,6 +653,13 @@ class App {
       div.textContent = block.translated_text;
       div.title = block.translated_text;
 
+      // ホバー連動ハイライト
+      div.addEventListener('mouseenter', () => {
+        this.highlightManager.highlightBlockHover(block.id, 'ja');
+      });
+      div.addEventListener('mouseleave', () => {
+        this.highlightManager.clearHoverHighlights();
+      });
       div.addEventListener('click', () => {
         this.highlightManager.highlightBlock(block.id, 'ja');
       });
@@ -587,9 +686,16 @@ class App {
       div.style.opacity = '0';
       div.style.transition = 'opacity 0.2s';
 
-      div.addEventListener('mouseenter', () => { div.style.opacity = '1'; });
+      div.addEventListener('mouseenter', () => {
+        div.style.opacity = '1';
+        // ホバー連動ハイライト（左パネルの対応ブロックを網掛け）
+        this.highlightManager.highlightBlockHover(block.id, 'en');
+      });
       div.addEventListener('mouseleave', () => {
-        if (!div.classList.contains('source-highlight--active')) div.style.opacity = '0';
+        if (!div.classList.contains('source-highlight--active') && !div.classList.contains('source-highlight--hover')) {
+          div.style.opacity = '0';
+        }
+        this.highlightManager.clearHoverHighlights();
       });
       div.addEventListener('click', () => {
         this.highlightManager.highlightBlock(block.id, 'en');
