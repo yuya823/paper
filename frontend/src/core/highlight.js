@@ -27,31 +27,24 @@ export class HighlightManager {
     }
   }
 
-  /** Hover highlight - shows matching block in the other panel */
-  highlightBlockHover(blockId, sourcePanel) {
+  /** Hover highlight - 日本語ブロックにホバーで英語側の対応箇所に選択色を表示 */
+  highlightBlockHover(blockId) {
     if (!this.enabled) return;
-    if (this._hoverBlockId === blockId) return; // already hovering
+    if (this._hoverBlockId === blockId) return;
     this.clearHoverHighlights();
     this._hoverBlockId = blockId;
 
-    // Highlight in the OTHER panel only
-    if (sourcePanel === 'ja') {
-      const enBlock = document.querySelector(`.panel--en [data-block-id="${blockId}"]`);
-      if (enBlock) {
-        enBlock.classList.add('source-highlight--hover');
-        enBlock.style.opacity = '1';
-      }
-    } else {
-      const jaBlock = document.querySelector(`.panel--ja [data-block-id="${blockId}"]`);
-      if (jaBlock) jaBlock.classList.add('translation-block--hover');
+    // 英語パネルの対応ブロックに選択色を表示
+    const enBlock = document.querySelector(`.panel--en [data-block-id="${blockId}"]`);
+    if (enBlock) {
+      enBlock.classList.add('source-highlight--hover');
+      enBlock.style.opacity = '1';
     }
   }
 
   clearHoverHighlights() {
-    document.querySelectorAll('.translation-block--hover').forEach(el => el.classList.remove('translation-block--hover'));
     document.querySelectorAll('.source-highlight--hover').forEach(el => {
       el.classList.remove('source-highlight--hover');
-      // Restore opacity unless it's actively clicked
       if (!el.classList.contains('source-highlight--active')) {
         el.style.opacity = '0';
       }

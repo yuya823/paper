@@ -239,16 +239,11 @@ input, select { font-family: inherit; }
   box-shadow: 0 0 12px rgba(56,189,248,0.3);
 }
 
-/* Cross-panel hover highlight */
-.translation-block--hover {
-  background: rgba(0,131,143,0.12) !important;
-  box-shadow: 0 0 0 2px rgba(0,131,143,0.4), 0 0 12px rgba(0,131,143,0.15);
-  z-index: 5;
-}
+/* Cross-panel hover highlight (日本語ホバー→英語側に選択色) */
 .source-highlight--hover {
-  background: rgba(56,189,248,0.12);
-  border-color: var(--c-accent);
-  box-shadow: 0 0 8px rgba(56,189,248,0.25);
+  background: rgba(66,133,244,0.25);
+  border: 2px solid rgba(66,133,244,0.5);
+  box-shadow: 0 0 6px rgba(66,133,244,0.2);
 }
 
 /* ===== Progress Modal ===== */

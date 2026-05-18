@@ -90,18 +90,6 @@ class App {
     }
     this.syncManager.setSyncScroll(this.prefs.sync_scroll);
     this.highlightManager.setEnabled(this.prefs.show_highlight_link);
-
-    // 最後に開いた論文を自動復元
-    const lastDocId = localStorage.getItem('paperTranslator_lastDocId');
-    if (lastDocId) {
-      try {
-        console.log('[Paper Translator] Restoring last document:', lastDocId);
-        await this._openDocument({ id: lastDocId });
-      } catch (e) {
-        console.log('[Paper Translator] Could not restore last document:', e.message);
-        localStorage.removeItem('paperTranslator_lastDocId');
-      }
-    }
   }
 
   render() {
@@ -467,9 +455,6 @@ class App {
     this.totalPages = this.currentDoc.total_pages;
     this.currentPage = 1;
 
-    // 最後に開いた論文を localStorage に保存
-    localStorage.setItem('paperTranslator_lastDocId', doc.id);
-
     // ビューアのキャッシュをクリア（新しいドキュメントを開くため）
     if (this._cachedScreens.viewer) {
       this._cachedScreens.viewer.remove();
@@ -655,7 +640,7 @@ class App {
 
       // ホバー連動ハイライト
       div.addEventListener('mouseenter', () => {
-        this.highlightManager.highlightBlockHover(block.id, 'ja');
+        this.highlightManager.highlightBlockHover(block.id);
       });
       div.addEventListener('mouseleave', () => {
         this.highlightManager.clearHoverHighlights();
@@ -686,16 +671,11 @@ class App {
       div.style.opacity = '0';
       div.style.transition = 'opacity 0.2s';
 
-      div.addEventListener('mouseenter', () => {
-        div.style.opacity = '1';
-        // ホバー連動ハイライト（左パネルの対応ブロックを網掛け）
-        this.highlightManager.highlightBlockHover(block.id, 'en');
-      });
+      div.addEventListener('mouseenter', () => { div.style.opacity = '1'; });
       div.addEventListener('mouseleave', () => {
         if (!div.classList.contains('source-highlight--active') && !div.classList.contains('source-highlight--hover')) {
           div.style.opacity = '0';
         }
-        this.highlightManager.clearHoverHighlights();
       });
       div.addEventListener('click', () => {
         this.highlightManager.highlightBlock(block.id, 'en');
