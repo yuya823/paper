@@ -635,16 +635,25 @@ class App {
       div.style.fontSize = fontSize + 'px';
       div.style.fontFamily = this.prefs?.font_family_ja || 'Noto Sans JP';
 
-      div.textContent = block.translated_text;
+      // 文単位でspanに分割
+      const sentences = this._splitSentences(block.translated_text);
+      sentences.forEach((sentence, idx) => {
+        const span = document.createElement('span');
+        span.className = 'translation-sentence';
+        span.textContent = sentence;
+
+        // 文単位のホバー連動ハイライト
+        span.addEventListener('mouseenter', () => {
+          this.highlightManager.highlightSentenceHover(block.id, idx, sentences.length);
+        });
+        span.addEventListener('mouseleave', () => {
+          this.highlightManager.clearHoverHighlights();
+        });
+        div.appendChild(span);
+      });
+
       div.title = block.translated_text;
 
-      // ホバー連動ハイライト
-      div.addEventListener('mouseenter', () => {
-        this.highlightManager.highlightBlockHover(block.id);
-      });
-      div.addEventListener('mouseleave', () => {
-        this.highlightManager.clearHoverHighlights();
-      });
       div.addEventListener('click', () => {
         this.highlightManager.highlightBlock(block.id, 'ja');
       });
@@ -653,6 +662,12 @@ class App {
     });
 
     container.appendChild(overlay);
+  }
+
+  /** テキストを文単位で分割 */
+  _splitSentences(text) {
+    const sentences = text.split(/(?<=[。！？!?])\s*/).filter(s => s.trim().length > 0);
+    return sentences.length > 0 ? sentences : [text];
   }
 
   _addSourceHighlights(container, blocks, renderInfo) {

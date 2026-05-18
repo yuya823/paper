@@ -27,28 +27,38 @@ export class HighlightManager {
     }
   }
 
-  /** Hover highlight - 日本語ブロックにホバーで英語側の対応箇所に選択色を表示 */
-  highlightBlockHover(blockId) {
+  /** 文単位ホバー - 日本語の文にホバーで英語側の対応範囲だけにハイライト */
+  highlightSentenceHover(blockId, sentenceIdx, totalSentences) {
     if (!this.enabled) return;
-    if (this._hoverBlockId === blockId) return;
     this.clearHoverHighlights();
     this._hoverBlockId = blockId;
 
-    // 英語パネルの対応ブロックに選択色を表示
     const enBlock = document.querySelector(`.panel--en [data-block-id="${blockId}"]`);
-    if (enBlock) {
-      enBlock.classList.add('source-highlight--hover');
-      enBlock.style.opacity = '1';
-    }
+    if (!enBlock || !enBlock.parentElement) return;
+
+    // ブロックの位置とサイズを取得
+    const top = parseFloat(enBlock.style.top);
+    const left = parseFloat(enBlock.style.left);
+    const width = parseFloat(enBlock.style.width);
+    const height = parseFloat(enBlock.style.height);
+
+    // 文の位置を按分計算
+    const sentenceH = height / totalSentences;
+    const sentenceTop = top + sentenceIdx * sentenceH;
+
+    // 一時的なハイライト要素を生成
+    const el = document.createElement('div');
+    el.className = 'source-sentence-hover';
+    el.style.left = left + 'px';
+    el.style.top = sentenceTop + 'px';
+    el.style.width = width + 'px';
+    el.style.height = sentenceH + 'px';
+
+    enBlock.parentElement.appendChild(el);
   }
 
   clearHoverHighlights() {
-    document.querySelectorAll('.source-highlight--hover').forEach(el => {
-      el.classList.remove('source-highlight--hover');
-      if (!el.classList.contains('source-highlight--active')) {
-        el.style.opacity = '0';
-      }
-    });
+    document.querySelectorAll('.source-sentence-hover').forEach(el => el.remove());
     this._hoverBlockId = null;
   }
 
