@@ -14,7 +14,7 @@ services:
       - key: SUPABASE_JWT_SECRET
         sync: false
       - key: TRANSLATION_MODE
-        value: deepl
+        value: google
       - key: DEEPL_API_KEY
         sync: false
       - key: LOCAL_DEV
