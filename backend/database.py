@@ -64,7 +64,16 @@ async def get_db() -> aiosqlite.Connection:
     db.row_factory = aiosqlite.Row
     await db.execute("PRAGMA journal_mode=WAL")
     await db.execute("PRAGMA foreign_keys=ON")
+    await db.execute("PRAGMA busy_timeout=5000")
     return db
+
+
+async def checkpoint_db(db: aiosqlite.Connection):
+    """Force WAL checkpoint to ensure all writes are flushed to main DB file."""
+    try:
+        await db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    except Exception as e:
+        print(f"[DB] WAL checkpoint warning: {e}")
 
 
 async def init_db():

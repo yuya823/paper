@@ -481,11 +481,32 @@ class App {
     // Load all blocks
     if (this.currentDoc.status === 'completed') {
       const allBlocks = await apiClient.getBlocks(doc.id);
-      this.blocks = {};
-      allBlocks.forEach(b => {
-        if (!this.blocks[b.page_number]) this.blocks[b.page_number] = [];
-        this.blocks[b.page_number].push(b);
-      });
+      if (allBlocks.length === 0) {
+        // ブロックが空の場合（サーバー再起動でデータ消失）→ 自動再翻訳
+        console.warn('[Paper Translator] Blocks empty for completed doc, auto-retranslating...');
+        try {
+          this._showProgress('再翻訳', 'データを復元しています...', 0.05);
+          await apiClient.startTranslation(this.currentDoc.id);
+          await this._pollProgress(this.currentDoc.id);
+          this._hideProgress();
+          this.currentDoc = await apiClient.getDocument(doc.id);
+          const retryBlocks = await apiClient.getBlocks(doc.id);
+          this.blocks = {};
+          retryBlocks.forEach(b => {
+            if (!this.blocks[b.page_number]) this.blocks[b.page_number] = [];
+            this.blocks[b.page_number].push(b);
+          });
+        } catch (e) {
+          this._hideProgress();
+          console.error('[Paper Translator] Auto-retranslation failed:', e);
+        }
+      } else {
+        this.blocks = {};
+        allBlocks.forEach(b => {
+          if (!this.blocks[b.page_number]) this.blocks[b.page_number] = [];
+          this.blocks[b.page_number].push(b);
+        });
+      }
     }
 
     this._renderPages();
@@ -587,15 +608,19 @@ class App {
 
       // Render canvases
       const panelWidth = document.getElementById('panelJa')?.clientWidth;
-      const [jaInfo] = await Promise.all([
+      const [jaInfo, enInfo] = await Promise.all([
         this.jaRenderer.renderPage(i, jaCanvas, panelWidth),
         this.enRenderer.renderPage(i, enCanvas, panelWidth),
       ]);
 
+      // 英語パネルにテキストレイヤーを追加（テキスト選択可能に）
+      if (enInfo?.page && enInfo?.viewport) {
+        await this.enRenderer.renderTextLayer(enInfo.page, enInfo.viewport, enPage);
+      }
+
       // Add translation overlay to JA panel
       if (this.blocks[i - 1]) {
         this._addTranslationOverlay(jaPage, this.blocks[i - 1], jaInfo);
-        this._addSourceHighlights(enPage, this.blocks[i - 1], jaInfo);
       }
     }
 

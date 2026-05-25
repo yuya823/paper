@@ -239,15 +239,33 @@ input, select { font-family: inherit; }
   box-shadow: 0 0 12px rgba(56,189,248,0.3);
 }
 
-/* Cross-panel sentence-level hover highlight */
-.source-sentence-hover {
+/* PDF Text Layer (英語パネル) */
+.pdf-text-layer {
   position: absolute;
-  background: rgba(66,133,244,0.25);
-  border: 1px solid rgba(66,133,244,0.4);
-  border-radius: 2px;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  line-height: 1.0;
   pointer-events: none;
-  z-index: 5;
 }
+.pdf-text-span {
+  position: absolute;
+  color: transparent;
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.pdf-text-span::selection {
+  background: rgba(66,133,244,0.35);
+}
+.pdf-text-span--hover {
+  background: rgba(66,133,244,0.25);
+  border-radius: 2px;
+}
+
+/* Sentence hover on Japanese side */
 .translation-sentence {
   transition: background 0.15s ease;
   border-radius: 1px;

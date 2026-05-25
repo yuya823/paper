@@ -50,7 +50,42 @@ export class PdfRenderer {
       scale: viewport.scale,
       origWidth: origViewport.width,
       origHeight: origViewport.height,
+      page,       // ページオブジェクトを返す（テキストレイヤー用）
+      viewport,   // ビューポートを返す
     };
+  }
+
+  /** テキストレイヤーを生成してコンテナに追加 */
+  async renderTextLayer(page, viewport, container) {
+    const textContent = await page.getTextContent();
+    const textLayerDiv = document.createElement('div');
+    textLayerDiv.className = 'pdf-text-layer';
+    textLayerDiv.style.width = viewport.width + 'px';
+    textLayerDiv.style.height = viewport.height + 'px';
+
+    textContent.items.forEach(item => {
+      if (!item.str || !item.str.trim()) return;
+
+      const span = document.createElement('span');
+      span.textContent = item.str;
+      span.className = 'pdf-text-span';
+
+      // transform: [scaleX, skewY, skewX, scaleY, translateX, translateY]
+      const tx = item.transform;
+      const fontSize = Math.sqrt(tx[0] * tx[0] + tx[1] * tx[1]);
+      const x = tx[4];
+      const y = viewport.height - tx[5] - fontSize;
+
+      span.style.left = x + 'px';
+      span.style.top = y + 'px';
+      span.style.fontSize = fontSize + 'px';
+      if (item.width) span.style.width = item.width + 'px';
+
+      textLayerDiv.appendChild(span);
+    });
+
+    container.appendChild(textLayerDiv);
+    return textLayerDiv;
   }
 
   async renderThumbnail(pageNum, canvas, width = 120) {
@@ -69,3 +104,4 @@ export class PdfRenderer {
   setScale(scale) { this.scale = scale; }
   getNumPages() { return this.pdfDoc?.numPages || 0; }
 }
+

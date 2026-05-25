@@ -1,7 +1,7 @@
 """Translation processing API routes with authentication."""
 import asyncio
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
-from database import get_db
+from database import get_db, checkpoint_db
 from auth import get_current_user
 from services.pdf_parser import extract_all_pages
 from services.translator import create_translator
@@ -16,6 +16,7 @@ _progress: dict[str, ProgressResponse] = {}
 
 async def _run_translation(doc_id: str, options: TranslationRequest):
     """Background task: extract blocks and translate them."""
+    print(f"[Translation] Starting translation for doc_id={doc_id}")
     db = await get_db()
     try:
         # Get document
@@ -60,6 +61,8 @@ async def _run_translation(doc_id: str, options: TranslationRequest):
                     ),
                 )
         await db.commit()
+        await checkpoint_db(db)
+        print(f"[Translation] Saved {total_blocks} blocks for doc_id={doc_id}")
 
         # Start translation
         _progress[doc_id] = ProgressResponse(
@@ -111,6 +114,8 @@ async def _run_translation(doc_id: str, options: TranslationRequest):
                 )
 
         await db.commit()
+        await checkpoint_db(db)
+        print(f"[Translation] Translated {translated_count}/{total_blocks} blocks for doc_id={doc_id}")
 
         # Complete
         _progress[doc_id] = ProgressResponse(
@@ -123,6 +128,8 @@ async def _run_translation(doc_id: str, options: TranslationRequest):
             (doc_id,),
         )
         await db.commit()
+        await checkpoint_db(db)
+        print(f"[Translation] Completed translation for doc_id={doc_id}")
 
     except Exception as e:
         _progress[doc_id] = ProgressResponse(
@@ -134,6 +141,7 @@ async def _run_translation(doc_id: str, options: TranslationRequest):
             "UPDATE documents SET status = 'error' WHERE id = ?", (doc_id,)
         )
         await db.commit()
+        print(f"[Translation] ERROR for doc_id={doc_id}: {e}")
     finally:
         await db.close()
 
