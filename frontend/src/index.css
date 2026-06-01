@@ -210,7 +210,7 @@ input, select { font-family: inherit; }
 }
 .translation-block {
   position: absolute;
-  background: transparent;
+  background: var(--c-overlay-bg);
   color: var(--c-overlay-text);
   font-family: var(--font-ja);
   overflow: hidden;
