@@ -152,6 +152,31 @@ input, select { font-family: inherit; }
 .doc-item:hover .doc-item__delete { opacity: 1; }
 .doc-item__delete:hover { color: var(--c-error); }
 
+/* Doc list loading/error states */
+.doc-list__loading {
+  text-align: center; padding: 32px 20px;
+  color: var(--c-text-dim); font-size: 0.85rem;
+}
+.doc-list__loading .spinner { margin: 0 auto 12px; }
+.doc-list__loading-hint {
+  font-size: 0.75rem; color: var(--c-text-muted);
+  margin-top: 8px;
+}
+.doc-list__error {
+  text-align: center; padding: 32px 20px;
+  background: var(--c-bg-elevated);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+}
+.doc-list__error > p:first-child {
+  font-size: 0.9rem; font-weight: 500;
+  margin-bottom: 4px;
+}
+.doc-list__error-detail {
+  font-size: 0.75rem; color: var(--c-text-muted);
+  margin-bottom: 16px;
+}
+
 /* ===== Viewer Layout ===== */
 .viewer { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .viewer__toolbar {

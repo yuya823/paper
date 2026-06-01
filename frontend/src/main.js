@@ -167,10 +167,7 @@ class App {
   async _refreshDocList() {
     const docList = this._cachedScreens.upload?.querySelector('#docList');
     if (!docList) return;
-    try {
-      const docs = await apiClient.listDocuments();
-      this._renderDocList(docList, docs);
-    } catch (e) { /* backend might not be running */ }
+    await this._loadDocList(docList);
   }
 
   // ─── Login Screen ──────────────────────────────
@@ -387,11 +384,36 @@ class App {
       if (fileInput.files[0]) this._handleUpload(fileInput.files[0]);
     });
 
-    // Load document list
+    // Load document list with loading state
+    await this._loadDocList(container.querySelector('#docList'));
+  }
+
+  async _loadDocList(docList) {
+    if (!docList) return;
+    // Show loading state
+    docList.innerHTML = `
+      <div class="doc-list__loading">
+        <div class="spinner"></div>
+        <p>論文リストを読み込み中...</p>
+        <p class="doc-list__loading-hint">サーバーの起動に時間がかかる場合があります</p>
+      </div>
+    `;
     try {
       const docs = await apiClient.listDocuments();
-      this._renderDocList(container.querySelector('#docList'), docs);
-    } catch (e) { /* backend might not be running */ }
+      this._renderDocList(docList, docs);
+    } catch (e) {
+      console.error('[Paper Translator] Failed to load documents:', e);
+      docList.innerHTML = `
+        <div class="doc-list__error">
+          <p>📡 サーバーに接続できませんでした</p>
+          <p class="doc-list__error-detail">${e.message}</p>
+          <button class="btn btn--primary btn--sm" id="btnRetryLoad">再試行</button>
+        </div>
+      `;
+      docList.querySelector('#btnRetryLoad')?.addEventListener('click', () => {
+        this._loadDocList(docList);
+      });
+    }
   }
 
   _renderDocList(container, docs) {

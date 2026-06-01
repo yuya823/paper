@@ -13,17 +13,31 @@ class ApiClient {
     return headers;
   }
 
-  async request(path, options = {}) {
+  async request(path, options = {}, retries = 3) {
     const url = `${API_BASE}${path}`;
     const headers = await this._getHeaders();
     // Don't override content-type for FormData
     if (options.body instanceof FormData) delete headers['Content-Type'];
-    const res = await fetch(url, { headers, ...options });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(err.detail || 'API Error');
+
+    let lastError;
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        const res = await fetch(url, { headers, ...options });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.detail || 'API Error');
+        }
+        return res;
+      } catch (e) {
+        lastError = e;
+        console.warn(`[API] Attempt ${attempt + 1}/${retries} failed for ${path}:`, e.message);
+        if (attempt < retries - 1) {
+          // Wait before retry (increasing delay: 2s, 4s, ...)
+          await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+        }
+      }
     }
-    return res;
+    throw lastError;
   }
 
   async uploadPdf(file) {
