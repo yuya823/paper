@@ -11,7 +11,13 @@ export const IS_LOCAL_DEV = !SUPABASE_URL || !SUPABASE_ANON_KEY;
 let supabase = null;
 
 if (!IS_LOCAL_DEV) {
-  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true, // Important for OAuth redirect handling
+    },
+  });
 }
 
 export { supabase };
@@ -26,7 +32,11 @@ export async function getAccessToken() {
 /** Get current user */
 export async function getCurrentUser() {
   if (IS_LOCAL_DEV) return { id: 'dev', email: 'dev@local' };
-  const { data } = await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    console.warn('[Auth] getCurrentUser error:', error.message);
+    return null;
+  }
   return data?.user || null;
 }
 
@@ -49,17 +59,27 @@ export async function signIn(email, password) {
 /** Sign in with Google OAuth */
 export async function signInWithGoogle() {
   if (IS_LOCAL_DEV) return;
-  const { error } = await supabase.auth.signInWithOAuth({
+  // Build the redirect URL - use current origin with clean path
+  const redirectUrl = `${window.location.origin}${window.location.pathname}`;
+  console.log('[Auth] Google OAuth redirect URL:', redirectUrl);
+  const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.origin },
+    options: {
+      redirectTo: redirectUrl,
+      queryParams: {
+        prompt: 'select_account', // Always show account picker
+      },
+    },
   });
   if (error) throw error;
+  return data;
 }
 
 /** Sign out */
 export async function signOut() {
   if (IS_LOCAL_DEV) return;
-  await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut();
+  if (error) console.error('[Auth] Sign out error:', error);
 }
 
 /** Listen to auth state changes */
@@ -69,7 +89,9 @@ export function onAuthStateChange(callback) {
     return { unsubscribe: () => {} };
   }
   const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    console.log('[Auth] State change:', event, session?.user?.email || 'no user');
     callback(event, session);
   });
   return data.subscription;
 }
+

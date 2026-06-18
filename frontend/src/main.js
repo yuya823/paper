@@ -46,8 +46,14 @@ class App {
     const oauthError = urlParams.get('error_description');
     if (oauthError) {
       console.warn('[Paper Translator] OAuth error:', oauthError);
-      // Clean URL
+      // Clean URL and show login with error
       window.history.replaceState({}, '', window.location.pathname);
+      this._pendingOAuthError = oauthError;
+    }
+
+    // Handle OAuth hash fragment (e.g., #access_token=... from redirect)
+    if (window.location.hash && window.location.hash.includes('access_token')) {
+      console.log('[Paper Translator] OAuth hash fragment detected, waiting for session...');
     }
 
     if (IS_LOCAL_DEV) {
@@ -55,16 +61,10 @@ class App {
       this.user = { email: 'dev@local' };
       this.screen = 'upload';
     } else {
-      // Check existing session
-      const user = await getCurrentUser();
-      if (user) {
-        this.user = user;
-        this.screen = 'upload';
-      } else {
-        this.screen = 'login';
-      }
-      // Listen for auth changes
+      // Listen for auth changes FIRST (before getCurrentUser)
+      // This ensures OAuth redirect callbacks are caught
       onAuthStateChange((event, session) => {
+        console.log('[Paper Translator] Auth state changed:', event);
         if (event === 'SIGNED_IN' && session?.user) {
           this.user = session.user;
           this.screen = 'upload';
@@ -74,11 +74,60 @@ class App {
           this.user = null;
           this.screen = 'login';
           this.render();
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          this.user = session.user;
+        } else if (event === 'INITIAL_SESSION') {
+          // Handle initial session from OAuth redirect
+          if (session?.user) {
+            this.user = session.user;
+            this.screen = 'upload';
+            this._authReady = true;
+            this.render();
+            this._loadAfterAuth();
+          } else {
+            // No session on initial load
+            this._authReady = true;
+          }
         }
       });
+
+      // Check existing session
+      // Note: onAuthStateChange INITIAL_SESSION may fire before or after this.
+      // We only update screen if onAuthStateChange hasn't already resolved it.
+      try {
+        const user = await getCurrentUser();
+        if (!this._authReady) {
+          // INITIAL_SESSION hasn't fired yet - use direct result
+          if (user) {
+            this.user = user;
+            this.screen = 'upload';
+          } else {
+            this.screen = 'login';
+          }
+        } else if (!this.user) {
+          // INITIAL_SESSION fired but no user - show login
+          this.screen = 'login';
+        }
+        // If this.user is already set by INITIAL_SESSION, don't override
+      } catch (err) {
+        console.error('[Paper Translator] Error checking session:', err);
+        if (!this.user) this.screen = 'login';
+      }
     }
 
     this.render();
+
+    // Show OAuth error if any
+    if (this._pendingOAuthError && this.screen === 'login') {
+      setTimeout(() => {
+        const loginScreen = document.querySelector('.login-screen');
+        if (loginScreen) {
+          this._showAuthMessage(loginScreen, this._pendingOAuthError, 'error');
+        }
+        this._pendingOAuthError = null;
+      }, 100);
+    }
+
     if (this.user) this._loadAfterAuth();
   }
 
@@ -269,37 +318,61 @@ class App {
       // Form submission
       s.querySelector('#authForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = s.querySelector('#authEmail').value;
+        const email = s.querySelector('#authEmail').value.trim();
         const password = s.querySelector('#authPassword').value;
         this._hideAuthMessage(s);
 
+        // Validate inputs
+        if (!email) {
+          this._showAuthMessage(s, 'メールアドレスを入力してください。', 'error');
+          return;
+        }
+        if (password.length < 6) {
+          this._showAuthMessage(s, 'パスワードは6文字以上で入力してください。', 'error');
+          return;
+        }
+
         // Show loading state
         submitBtn.classList.add('auth-submit--loading');
+        submitBtn.disabled = true;
 
         try {
           if (isLogin) {
             await signIn(email, password);
+            // signIn success → onAuthStateChange will handle screen transition
+            // Keep loading state until auth state change fires
           } else {
             await signUp(email, password);
             submitBtn.classList.remove('auth-submit--loading');
+            submitBtn.disabled = false;
             this._showAuthMessage(s, '確認メールを送信しました。メールを確認してください。', 'success');
             return;
           }
         } catch (err) {
           submitBtn.classList.remove('auth-submit--loading');
-          this._showAuthMessage(s, err.message, 'error');
+          submitBtn.disabled = false;
+          // Localize common Supabase error messages
+          const msg = this._localizeAuthError(err.message);
+          this._showAuthMessage(s, msg, 'error');
         }
       });
 
       // Google OAuth
       s.querySelector('#btnGoogle').addEventListener('click', async () => {
+        const googleBtn = s.querySelector('#btnGoogle');
+        googleBtn.disabled = true;
+        googleBtn.style.opacity = '0.7';
         try {
           await signInWithGoogle();
+          // OAuth will redirect the page, so we don't need to do anything here
         } catch (err) {
-          this._showAuthMessage(s, err.message, 'error');
+          googleBtn.disabled = false;
+          googleBtn.style.opacity = '';
+          const msg = this._localizeAuthError(err.message);
+          this._showAuthMessage(s, msg, 'error');
         }
       });
-    });
+    }, 0);
     return s;
   }
 
@@ -314,6 +387,25 @@ class App {
   _hideAuthMessage(container) {
     const el = container.querySelector('#authMessage');
     if (el) el.style.display = 'none';
+  }
+
+  /** Localize common Supabase auth error messages to Japanese */
+  _localizeAuthError(message) {
+    const errorMap = {
+      'Invalid login credentials': 'メールアドレスまたはパスワードが正しくありません。',
+      'Email not confirmed': 'メールアドレスが確認されていません。確認メールをご確認ください。',
+      'User already registered': 'このメールアドレスは既に登録されています。',
+      'Password should be at least 6 characters': 'パスワードは6文字以上で入力してください。',
+      'Unable to validate email address: invalid format': 'メールアドレスの形式が正しくありません。',
+      'Email rate limit exceeded': 'メール送信の上限に達しました。しばらくしてからお試しください。',
+      'For security purposes, you can only request this after': 'セキュリティのため、しばらくしてから再度お試しください。',
+      'Signup requires a valid password': '有効なパスワードを入力してください。',
+      'To signup, please provide your email': '新規登録にはメールアドレスが必要です。',
+    };
+    for (const [eng, jpn] of Object.entries(errorMap)) {
+      if (message.includes(eng)) return jpn;
+    }
+    return message;
   }
 
   // ─── Header ────────────────────────────────────
